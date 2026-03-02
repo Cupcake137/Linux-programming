@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <stdatomic.h>
 #include "thread_workers.h"
 #include "logging.h"
 

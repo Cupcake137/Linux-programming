@@ -29,6 +29,16 @@ void log_event(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     vsnprintf(buffer, sizeof(buffer), fmt, args);
+
+    size_t len = strlen(buffer);
+    if (len == 0 || buffer[len-1] != '\n') {
+        if (len < sizeof(buffer)-1) {
+            buffer[len] = '\n';
+            buffer[len+1] = '\0';
+        }
+    }
+    write(fifo_fd, buffer, strlen(buffer));
+
     va_end(args);
 
     write(fifo_fd, buffer, strlen(buffer));

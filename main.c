@@ -28,41 +28,60 @@ static void join_thread(pthread_t t) {
 }
 
 static void run_log_process() {
-    int fifo_fd = open(FIFO_NAME, O_RDONLY);
-    if (fifo_fd < 0) { perror("log process open FIFO"); exit(EXIT_FAILURE); }
+    // int fifo_fd = open(FIFO_NAME, O_RDONLY);
+    // if (fifo_fd < 0) { perror("log process open FIFO"); exit(EXIT_FAILURE); }
 
+    // FILE *log_fp = fopen(LOG_FILE, "w");
+    // if (!log_fp) { perror("open log file"); exit(EXIT_FAILURE); }
+
+    // char buffer[512];
+    // int seq = 0;
+
+    // while (1) {
+    //     int n = read(fifo_fd, buffer, sizeof(buffer)-1);
+
+    //     if (n > 0) {
+    //         buffer[n] = '\0';
+
+    //         // trim \r \n
+    //         while (n > 0 && (buffer[n-1] == '\n' || buffer[n-1] == '\r')) {
+    //             buffer[--n] = '\0';
+    //         }
+
+    //         if (strcmp(buffer, "SHUTDOWN") == 0) {
+    //             break;
+    //         }
+
+    //         time_t now = time(NULL);
+    //         fprintf(log_fp, "%d %ld %s\n", ++seq, now, buffer);
+    //         fflush(log_fp);
+    //     }
+    //     else if (n == 0) {
+    //         break;
+    //     }
+    //     else {
+    //         perror("log process read FIFO");
+    //         break;
+    //     }
+    // }
+
+    int fd = open(FIFO_NAME, O_RDONLY);
+    FILE *fifo_fp = fdopen(fd, "r");
     FILE *log_fp = fopen(LOG_FILE, "w");
-    if (!log_fp) { perror("open log file"); exit(EXIT_FAILURE); }
 
-    char buffer[512];
+    char line[512];
     int seq = 0;
 
-    while (1) {
-        int n = read(fifo_fd, buffer, sizeof(buffer)-1);
+    while (fgets(line, sizeof(line), fifo_fp)) {
+        // trim newline
+        size_t n = strlen(line);
+        while (n > 0 && (line[n-1]=='\n' || line[n-1]=='\r')) line[--n] = 0;
 
-        if (n > 0) {
-            buffer[n] = '\0';
+        if (strcmp(line, "SHUTDOWN") == 0) break;
 
-            // trim \r \n
-            while (n > 0 && (buffer[n-1] == '\n' || buffer[n-1] == '\r')) {
-                buffer[--n] = '\0';
-            }
-
-            if (strcmp(buffer, "SHUTDOWN") == 0) {
-                break;
-            }
-
-            time_t now = time(NULL);
-            fprintf(log_fp, "%d %ld %s\n", ++seq, now, buffer);
-            fflush(log_fp);
-        }
-        else if (n == 0) {
-            break;
-        }
-        else {
-            perror("log process read FIFO");
-            break;
-        }
+        time_t now = time(NULL);
+        fprintf(log_fp, "%d %ld %s\n", ++seq, now, line);
+        fflush(log_fp);
     }
 }
 
@@ -93,12 +112,6 @@ int main(int argc, char *argv[]) {
     if (pid == 0) {
         run_log_process();
 
-        /*
-        if (strcmp(buffer, "SHUTDOWN") == 0) {
-            printf("Log process exiting\n");
-            //break;
-        } */
-
         exit(0);
     }
 
@@ -127,6 +140,7 @@ int main(int argc, char *argv[]) {
     log_event("Gateway shutting down");
     log_event("SHUTDOWN"); 
     log_cleanup();
+    waitpid(pid, NULL, 0);
 
     printf("Main exiting\n");
     return 0;
