@@ -8,12 +8,24 @@
 #include <pthread.h>
 #include <stdatomic.h>
 #include <string.h>
+#include <errno.h>
 
 #include "logging.h"
 #include "thread_workers.h"
 
 #define FIFO_NAME "logFifo"
 #define LOG_FILE  "gateway.log"
+
+static void join_thread(pthread_t t) {
+    int rc;
+    do {
+        rc = pthread_join(t, NULL);
+    } while (rc == EINTR);
+    if (rc != 0) {
+        
+        fprintf(stderr, "pthread_join failed: %d\n", rc);
+    }
+}
 
 static void run_log_process() {
     int fifo_fd = open(FIFO_NAME, O_RDONLY);
@@ -30,6 +42,16 @@ static void run_log_process() {
 
         if (n > 0) {
             buffer[n] = '\0';
+
+            // trim \r \n
+            while (n > 0 && (buffer[n-1] == '\n' || buffer[n-1] == '\r')) {
+                buffer[--n] = '\0';
+            }
+
+            if (strcmp(buffer, "SHUTDOWN") == 0) {
+                break;
+            }
+
             time_t now = time(NULL);
             fprintf(log_fp, "%d %ld %s\n", ++seq, now, buffer);
             fflush(log_fp);
@@ -94,9 +116,13 @@ int main(int argc, char *argv[]) {
     pthread_create(&t_store, NULL, storage_manager, NULL);
 
     // Chờ threads thoát (Ctrl+C để stop)
-    pthread_join(t_conn, NULL);
-    pthread_join(t_data, NULL);
-    pthread_join(t_store, NULL);
+    // pthread_join(t_conn, NULL);
+    // pthread_join(t_data, NULL);
+    // pthread_join(t_store, NULL);
+
+    join_thread(t_conn);
+    join_thread(t_data);
+    join_thread(t_store);
 
     log_event("Gateway shutting down");
     log_event("SHUTDOWN"); 
