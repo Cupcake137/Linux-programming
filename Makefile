@@ -1,8 +1,21 @@
-CC=gcc
-CFLAGS=-Wall -Wextra -pthread
+CC = gcc
+CFLAGS = -Wall -Wextra -O2 -pthread -Iinc
+TARGET = gateway
 
-all:
-	$(CC) main.c logging.c thread_workers.c -o gateway $(CFLAGS)
+SRCS = src/main.c \
+       src/logging.c \
+       src/logger_proc.c \
+       src/sbuffer.c \
+       src/thread_workers.c
+
+OBJS = $(SRCS:.c=.o)
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CC) $(OBJS) -o $(TARGET) $(CFLAGS)
 
 clean:
-	rm -f gateway logFifo gateway.log
+	rm -f $(TARGET) $(OBJS) logFifo gateway.log
+
+.PHONY: all clean
